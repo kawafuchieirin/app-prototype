@@ -1,0 +1,18 @@
+FROM node:22-slim
+
+WORKDIR /app
+
+# 依存関係ファイルをコピー
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# 依存関係をインストール
+RUN npm install
+
+# アプリケーションコードをコピー
+COPY frontend/ .
+
+# ポート公開
+EXPOSE 5173
+
+# 開発サーバー起動（外部からアクセス可能に）
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
