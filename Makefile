@@ -204,7 +204,7 @@ deploy: deploy-backend deploy-frontend
 deploy-backend:
 	@echo "=== バックエンドをデプロイ ==="
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REPO)
-	cd backend && docker build -t $(ECR_REPO):latest .
+	cd backend && docker build --platform linux/amd64 -t $(ECR_REPO):latest .
 	docker push $(ECR_REPO):latest
 	aws lambda update-function-code --function-name $(LAMBDA_FUNCTION) --image-uri $(ECR_REPO):latest --region $(AWS_REGION)
 	aws lambda wait function-updated --function-name $(LAMBDA_FUNCTION) --region $(AWS_REGION)
