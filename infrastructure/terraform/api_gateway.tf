@@ -9,7 +9,7 @@ resource "aws_apigatewayv2_api" "main" {
       "http://localhost:3000",
       "https://${aws_cloudfront_distribution.frontend.domain_name}"
     ]
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["*"]
     max_age       = 3600
   }
