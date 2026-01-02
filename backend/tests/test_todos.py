@@ -4,9 +4,23 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth import CognitoUser, get_current_user
 from app.main import app
 from app.models.todo import Todo, TodoStats, TodoStatus
 from app.services.todo_service import TodoService
+
+
+# テスト用のダミーユーザー
+def get_test_user() -> CognitoUser:
+    return CognitoUser(
+        sub="test-user-sub",
+        email="test@example.com",
+        username="test-user",
+    )
+
+
+# 認証をオーバーライド
+app.dependency_overrides[get_current_user] = get_test_user
 
 client = TestClient(app)
 

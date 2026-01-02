@@ -14,10 +14,7 @@ services:
     container_name: dynamodb-local
     ports:
       - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
-    volumes:
-      - dynamodb-data:/data
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
 
 volumes:
   cognito-data:
-  dynamodb-data:

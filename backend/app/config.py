@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     dynamodb_endpoint_url: str | None = None  # ローカル環境用（例: http://localhost:8000）
 
     # Cognito
-    cognito_user_pool_id: str | None = None
-    cognito_client_id: str | None = None
+    cognito_user_pool_id: str = "ap-northeast-1_s3sYhRqys"
+    cognito_client_id: str = "517vjop1nqa8c909oqj24ssgaf"
     cognito_endpoint_url: str | None = None  # ローカル環境用（例: http://localhost:9229）
 
     class Config:

@@ -14,6 +14,8 @@ S3_BUCKET = app-prototype-frontend-dev
 CLOUDFRONT_ID = E3MKYSY7TC8WOW
 API_URL = https://i7yz3ihjzj.execute-api.$(AWS_REGION).amazonaws.com
 DYNAMODB_TABLE = app-prototype-dev
+COGNITO_USER_POOL_ID = ap-northeast-1_s3sYhRqys
+COGNITO_CLIENT_ID = 517vjop1nqa8c909oqj24ssgaf
 
 # デフォルトターゲット
 help:
@@ -81,12 +83,12 @@ pre-commit-install:
 # ==============================
 dev:
 	@echo "🚀 ローカル開発環境を起動中..."
-	@echo "  バックエンド: http://localhost:8000"
+	@echo "  バックエンド: http://localhost:8001"
 	@echo "  フロントエンド: http://localhost:5173"
 	@echo ""
 	@echo "停止するには Ctrl+C を押してください"
 	@trap 'kill 0' EXIT; \
-	(cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8000) & \
+	(cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8001) & \
 	(cd frontend && npm run dev) & \
 	wait
 
@@ -94,7 +96,7 @@ dev-frontend:
 	cd frontend && npm run dev
 
 dev-backend:
-	cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8000
+	cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8001
 
 # ==============================
 # ローカル環境 (Docker: Cognito/DynamoDB Local)
@@ -122,21 +124,31 @@ dev-local:
 		exit 1; \
 	fi
 	@echo "🚀 ローカル開発環境を起動中（Docker使用）..."
-	@echo "  バックエンド: http://localhost:8000"
-	@echo "  フロントエンド: http://localhost:5173"
-	@echo "  Cognito Local: http://localhost:9229"
-	@echo "  DynamoDB Local: http://localhost:8000"
+	@echo "  バックエンド: http://127.0.0.1:8001"
+	@echo "  フロントエンド: http://127.0.0.1:5173"
+	@echo "  Cognito Local: http://127.0.0.1:9229"
+	@echo "  DynamoDB Local: http://127.0.0.1:8000"
+	@echo ""
+	@echo "テストユーザー: test@example.com / Test1234!"
 	@echo ""
 	@echo "停止するには Ctrl+C を押してください"
 	@source local/.env.local && trap 'kill 0' EXIT; \
 	(cd backend && \
-		DYNAMODB_ENDPOINT_URL=http://localhost:8000 \
+		AWS_ACCESS_KEY_ID=dummy \
+		AWS_SECRET_ACCESS_KEY=dummy \
+		AWS_DEFAULT_REGION=ap-northeast-1 \
+		DYNAMODB_ENDPOINT_URL=http://127.0.0.1:8000 \
 		DYNAMODB_TABLE_NAME=app-prototype-local \
-		COGNITO_ENDPOINT_URL=http://localhost:9229 \
+		COGNITO_ENDPOINT_URL=http://127.0.0.1:9229 \
 		COGNITO_USER_POOL_ID=$$COGNITO_USER_POOL_ID \
 		COGNITO_CLIENT_ID=$$COGNITO_CLIENT_ID \
-		poetry run uvicorn app.main:app --reload --port 8001) & \
-	(cd frontend && VITE_API_URL=http://localhost:8001 npm run dev) & \
+		poetry run uvicorn app.main:app --host 0.0.0.0 --port 8001) & \
+	(cd frontend && \
+		VITE_API_URL=http://127.0.0.1:8001 \
+		VITE_COGNITO_ENDPOINT=http://127.0.0.1:9229 \
+		VITE_COGNITO_USER_POOL_ID=$$COGNITO_USER_POOL_ID \
+		VITE_COGNITO_CLIENT_ID=$$COGNITO_CLIENT_ID \
+		npm run dev) & \
 	wait
 
 # ==============================
@@ -200,7 +212,12 @@ deploy-backend:
 
 deploy-frontend:
 	@echo "=== フロントエンドをデプロイ ==="
-	cd frontend && VITE_API_URL=$(API_URL) npm run build
+	cd frontend && \
+		VITE_API_URL=$(API_URL) \
+		VITE_COGNITO_USER_POOL_ID=$(COGNITO_USER_POOL_ID) \
+		VITE_COGNITO_CLIENT_ID=$(COGNITO_CLIENT_ID) \
+		VITE_AWS_REGION=$(AWS_REGION) \
+		npm run build
 	aws s3 sync frontend/dist/ s3://$(S3_BUCKET) --delete --region $(AWS_REGION)
 	aws cloudfront create-invalidation --distribution-id $(CLOUDFRONT_ID) --paths "/*" --region $(AWS_REGION)
 	@echo "✅ フロントエンドデプロイ完了!"

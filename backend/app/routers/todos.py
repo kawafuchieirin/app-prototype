@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from app.auth import CurrentUser
 from app.models.todo import Todo, TodoCreate, TodoStats, TodoUpdate
 from app.services.todo_service import todo_service
 
@@ -7,26 +8,26 @@ router = APIRouter(prefix="/todos", tags=["todos"])
 
 
 @router.get("", response_model=list[Todo])
-async def list_todos() -> list[Todo]:
-    """全てのToDoを取得"""
+async def list_todos(_user: CurrentUser) -> list[Todo]:
+    """全てのToDoを取得（認証必須）"""
     return todo_service.list_all()
 
 
 @router.get("/stats", response_model=TodoStats)
-async def get_stats() -> TodoStats:
-    """ToDoの統計情報を取得"""
+async def get_stats(_user: CurrentUser) -> TodoStats:
+    """ToDoの統計情報を取得（認証必須）"""
     return todo_service.get_stats()
 
 
 @router.post("", response_model=Todo, status_code=201)
-async def create_todo(todo_create: TodoCreate) -> Todo:
-    """新しいToDoを作成"""
+async def create_todo(todo_create: TodoCreate, _user: CurrentUser) -> Todo:
+    """新しいToDoを作成（認証必須）"""
     return todo_service.create(todo_create)
 
 
 @router.get("/{todo_id}", response_model=Todo)
-async def get_todo(todo_id: str) -> Todo:
-    """特定のToDoを取得"""
+async def get_todo(todo_id: str, _user: CurrentUser) -> Todo:
+    """特定のToDoを取得（認証必須）"""
     todo = todo_service.get(todo_id)
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
@@ -34,8 +35,8 @@ async def get_todo(todo_id: str) -> Todo:
 
 
 @router.patch("/{todo_id}", response_model=Todo)
-async def update_todo(todo_id: str, todo_update: TodoUpdate) -> Todo:
-    """ToDoを更新"""
+async def update_todo(todo_id: str, todo_update: TodoUpdate, _user: CurrentUser) -> Todo:
+    """ToDoを更新（認証必須）"""
     todo = todo_service.update(todo_id, todo_update)
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
@@ -43,7 +44,7 @@ async def update_todo(todo_id: str, todo_update: TodoUpdate) -> Todo:
 
 
 @router.delete("/{todo_id}", status_code=204)
-async def delete_todo(todo_id: str) -> None:
-    """ToDoを削除"""
+async def delete_todo(todo_id: str, _user: CurrentUser) -> None:
+    """ToDoを削除（認証必須）"""
     if not todo_service.delete(todo_id):
         raise HTTPException(status_code=404, detail="Todo not found")

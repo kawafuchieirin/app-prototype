@@ -1,6 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { AuthProvider } from './contexts/AuthContext'
+
+// 認証サービスをモック
+vi.mock('./services/auth', () => ({
+  getCurrentUser: vi.fn(() => ({
+    username: 'test-user',
+    email: 'test@example.com',
+    sub: 'test-sub',
+  })),
+  getAccessToken: vi.fn(() => Promise.resolve('mock-token')),
+  signIn: vi.fn(),
+  signUp: vi.fn(),
+  confirmSignUp: vi.fn(),
+  signOut: vi.fn(),
+}))
 
 const mockTodos = [
   {
@@ -51,27 +66,36 @@ describe('App', () => {
     )
   })
 
+  const renderApp = () =>
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    )
+
   it('renders the dashboard title', async () => {
-    render(<App />)
+    renderApp()
     await waitFor(() => {
       expect(screen.getByText('ToDo Dashboard')).toBeInTheDocument()
     })
   })
 
-  it('displays loading state initially', () => {
-    render(<App />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+  it('displays user email after authentication', async () => {
+    renderApp()
+    await waitFor(() => {
+      expect(screen.getByText('test@example.com')).toBeInTheDocument()
+    })
   })
 
   it('displays stats after loading', async () => {
-    render(<App />)
+    renderApp()
     await waitFor(() => {
       expect(screen.getByText('50%')).toBeInTheDocument()
     })
   })
 
   it('displays todos after loading', async () => {
-    render(<App />)
+    renderApp()
     await waitFor(() => {
       expect(screen.getByText('Test Todo 1')).toBeInTheDocument()
       expect(screen.getByText('Test Todo 2')).toBeInTheDocument()
@@ -84,7 +108,7 @@ describe('App', () => {
       vi.fn(() => Promise.reject(new Error('Network error')))
     )
 
-    render(<App />)
+    renderApp()
     await waitFor(() => {
       expect(screen.getByText(/Failed to load data/)).toBeInTheDocument()
     })
