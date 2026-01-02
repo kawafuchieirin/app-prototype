@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 
-.PHONY: help install install-frontend install-backend dev dev-frontend dev-backend test test-frontend test-backend lint lint-frontend lint-backend format build build-frontend build-backend clean tf-init tf-plan tf-apply tf-destroy pre-commit-install pre-commit-run deploy deploy-backend deploy-frontend deploy-infra
+.PHONY: help install install-frontend install-backend dev dev-frontend dev-backend dev-local local-up local-down local-init local-logs test test-frontend test-backend lint lint-frontend lint-backend format build build-frontend build-backend clean tf-init tf-plan tf-apply tf-destroy pre-commit-install pre-commit-run deploy deploy-backend deploy-frontend deploy-infra
 
 # ==============================
 # 設定
@@ -25,10 +25,17 @@ help:
 	@echo "    make install-backend    - バックエンドの依存関係をインストール"
 	@echo "    make pre-commit-install - pre-commitフックをインストール"
 	@echo ""
-	@echo "  ローカル開発:"
+	@echo "  ローカル開発（AWS使用）:"
 	@echo "    make dev                - フロントエンド+バックエンドを同時起動"
 	@echo "    make dev-frontend       - フロントエンドのみ (localhost:5173)"
 	@echo "    make dev-backend        - バックエンドのみ (localhost:8000)"
+	@echo ""
+	@echo "  ローカル開発（Docker使用）:"
+	@echo "    make local-up           - Cognito/DynamoDB Localを起動"
+	@echo "    make local-init         - ローカル環境を初期化"
+	@echo "    make dev-local          - ローカル環境でフロント+バックエンド起動"
+	@echo "    make local-down         - Dockerコンテナを停止"
+	@echo "    make local-logs         - Dockerログを表示"
 	@echo ""
 	@echo "  テスト:"
 	@echo "    make test               - 全テストを実行"
@@ -88,6 +95,49 @@ dev-frontend:
 
 dev-backend:
 	cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8000
+
+# ==============================
+# ローカル環境 (Docker: Cognito/DynamoDB Local)
+# ==============================
+local-up:
+	cd local && docker compose up -d
+	@echo "Cognito Local: http://localhost:9229"
+	@echo "DynamoDB Local: http://localhost:8000"
+
+local-down:
+	cd local && docker compose down
+
+local-logs:
+	cd local && docker compose logs -f
+
+local-init: local-up
+	@echo "コンテナが起動するまで待機中..."
+	@sleep 3
+	./local/scripts/init-dynamodb.sh
+	./local/scripts/init-cognito.sh
+
+dev-local:
+	@if [ ! -f local/.env.local ]; then \
+		echo "ローカル環境が初期化されていません。make local-init を実行してください。"; \
+		exit 1; \
+	fi
+	@echo "🚀 ローカル開発環境を起動中（Docker使用）..."
+	@echo "  バックエンド: http://localhost:8000"
+	@echo "  フロントエンド: http://localhost:5173"
+	@echo "  Cognito Local: http://localhost:9229"
+	@echo "  DynamoDB Local: http://localhost:8000"
+	@echo ""
+	@echo "停止するには Ctrl+C を押してください"
+	@source local/.env.local && trap 'kill 0' EXIT; \
+	(cd backend && \
+		DYNAMODB_ENDPOINT_URL=http://localhost:8000 \
+		DYNAMODB_TABLE_NAME=app-prototype-local \
+		COGNITO_ENDPOINT_URL=http://localhost:9229 \
+		COGNITO_USER_POOL_ID=$$COGNITO_USER_POOL_ID \
+		COGNITO_CLIENT_ID=$$COGNITO_CLIENT_ID \
+		poetry run uvicorn app.main:app --reload --port 8001) & \
+	(cd frontend && VITE_API_URL=http://localhost:8001 npm run dev) & \
+	wait
 
 # ==============================
 # テスト

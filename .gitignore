@@ -83,3 +83,6 @@ logs/
 # Lambda packaging
 backend/lambda.zip
 backend/package/
+
+# Local environment
+local/.env.local
