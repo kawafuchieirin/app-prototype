@@ -134,9 +134,7 @@ export function LoginPage() {
               minLength={8}
             />
             {mode === 'signUp' && (
-              <p className="password-hint">
-                8文字以上、大文字・小文字・数字・記号を含む
-              </p>
+              <p className="password-hint">8文字以上、大文字・小文字・数字・記号を含む</p>
             )}
           </div>
 
