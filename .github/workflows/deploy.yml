@@ -31,32 +31,34 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
 
       - name: Terraform Init
-        run: terraform init -upgrade
+        run: |
+          echo "=== Terraform Init ==="
+          terraform init -upgrade
+          echo ""
+          echo "=== Backend Configuration ==="
+          cat .terraform/terraform.tfstate 2>/dev/null || echo "No local state file"
 
       - name: Verify Terraform State Access
         run: |
-          echo "Checking S3 backend access..."
-          aws s3 ls s3://app-prototype-terraform-state/ || echo "ERROR: Cannot access state bucket"
+          echo "=== S3 Backend Check ==="
+          aws s3 ls s3://app-prototype-terraform-state/app-prototype/
 
-          echo "Checking Terraform state..."
-          STATE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
-          echo "State resource count: $STATE_COUNT"
+          echo ""
+          echo "=== Terraform State List ==="
+          terraform state list
+
+          echo ""
+          echo "=== State Resource Count ==="
+          STATE_COUNT=$(terraform state list | wc -l | tr -d ' ')
+          echo "Count: $STATE_COUNT"
 
           if [ "$STATE_COUNT" -eq "0" ]; then
-            echo "ERROR: Terraform state is empty. This may indicate:"
-            echo "  - IAM permissions issue for S3 state bucket"
-            echo "  - IAM permissions issue for DynamoDB lock table"
-            echo "  - State was corrupted or deleted"
-            echo ""
-            echo "Required IAM permissions:"
-            echo "  - s3:GetObject, s3:PutObject, s3:ListBucket on app-prototype-terraform-state"
-            echo "  - dynamodb:GetItem, dynamodb:PutItem, dynamodb:DeleteItem on terraform-state-lock"
+            echo "ERROR: Terraform state is empty!"
             exit 1
           fi
-
-          terraform state list
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
