@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import boto3
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class TodoService:
     def __init__(self) -> None:
-        self._table: "Table | None" = None
+        self._table: Table | None = None
 
     @property
     def table(self) -> "Table":
@@ -35,7 +35,7 @@ class TodoService:
         return str(uuid.uuid4())
 
     def _now(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     def create(self, todo_create: TodoCreate) -> Todo:
         now = self._now()

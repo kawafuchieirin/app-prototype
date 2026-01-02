@@ -64,9 +64,9 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ENVIRONMENT        = var.environment
+      ENVIRONMENT         = var.environment
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.main.name
-      AWS_REGION_NAME    = var.aws_region
+      AWS_REGION_NAME     = var.aws_region
     }
   }
 }
