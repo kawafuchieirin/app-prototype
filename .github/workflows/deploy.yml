@@ -88,6 +88,7 @@ jobs:
     outputs:
       frontend_bucket: ${{ steps.tf-outputs.outputs.frontend_bucket }}
       cloudfront_id: ${{ steps.tf-outputs.outputs.cloudfront_id }}
+      lambda_function_name: ${{ steps.tf-outputs.outputs.lambda_function_name }}
 
   deploy-backend:
     name: Deploy Backend
@@ -134,8 +135,13 @@ jobs:
 
       - name: Deploy to Lambda
         run: |
+          FUNCTION_NAME="${{ needs.deploy-infrastructure.outputs.lambda_function_name }}"
+          if [ -z "$FUNCTION_NAME" ]; then
+            echo "Lambda function name not available, skipping deployment"
+            exit 0
+          fi
           aws lambda update-function-code \
-            --function-name app-prototype-api-prod \
+            --function-name "$FUNCTION_NAME" \
             --zip-file fileb://lambda.zip
 
   deploy-frontend:
@@ -170,10 +176,20 @@ jobs:
 
       - name: Deploy to S3
         run: |
-          aws s3 sync dist/ s3://${{ needs.deploy-infrastructure.outputs.frontend_bucket }} --delete
+          BUCKET="${{ needs.deploy-infrastructure.outputs.frontend_bucket }}"
+          if [ -z "$BUCKET" ]; then
+            echo "S3 bucket not available, skipping deployment"
+            exit 0
+          fi
+          aws s3 sync dist/ s3://$BUCKET --delete
 
       - name: Invalidate CloudFront Cache
         run: |
+          DIST_ID="${{ needs.deploy-infrastructure.outputs.cloudfront_id }}"
+          if [ -z "$DIST_ID" ]; then
+            echo "CloudFront distribution not available, skipping invalidation"
+            exit 0
+          fi
           aws cloudfront create-invalidation \
-            --distribution-id ${{ needs.deploy-infrastructure.outputs.cloudfront_id }} \
+            --distribution-id $DIST_ID \
             --paths "/*"
