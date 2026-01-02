@@ -1,3 +1,9 @@
+
+## 構成図
+<img width="841" height="711" alt="名称未設定ファイル drawio" src="https://github.com/user-attachments/assets/ab922491-a3ec-4dc8-86ff-852ad79b5030" />
+
+
+
 # App Prototype
 
 フルスタックWebアプリケーションのプロトタイプ。
