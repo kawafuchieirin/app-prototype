@@ -20,12 +20,7 @@ export function TodoList({ todos, onStatusChange, onDelete }: TodoListProps) {
   return (
     <div className="todo-list">
       {sortedTodos.map((todo) => (
-        <TodoItem
-          key={todo.id}
-          todo={todo}
-          onStatusChange={onStatusChange}
-          onDelete={onDelete}
-        />
+        <TodoItem key={todo.id} todo={todo} onStatusChange={onStatusChange} onDelete={onDelete} />
       ))}
     </div>
   )

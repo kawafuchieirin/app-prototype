@@ -13,10 +13,7 @@ export function StatsCard({ stats }: StatsCardProps) {
       </div>
 
       <div className="progress-bar">
-        <div
-          className="progress-fill"
-          style={{ width: `${stats.completion_rate}%` }}
-        />
+        <div className="progress-fill" style={{ width: `${stats.completion_rate}%` }} />
       </div>
 
       <div className="stats-grid">
