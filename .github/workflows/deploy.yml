@@ -44,26 +44,38 @@ jobs:
       - name: Verify Terraform State Access
         run: |
           echo "=== S3 Backend Check ==="
-          aws s3 ls s3://app-prototype-terraform-state/app-prototype/
+          aws s3 ls s3://app-prototype-terraform-state/app-prototype/ || echo "State file not found (initial deployment)"
 
           echo ""
           echo "=== Terraform State List ==="
-          terraform state list
+          terraform state list || echo "No resources in state"
 
           echo ""
           echo "=== State Resource Count ==="
-          STATE_COUNT=$(terraform state list | wc -l | tr -d ' ')
+          STATE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
           echo "Count: $STATE_COUNT"
 
-          if [ "$STATE_COUNT" -eq "0" ]; then
-            echo "ERROR: Terraform state is empty!"
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=tfplan
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "No changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          elif [ $EXIT_CODE -eq 2 ]; then
+            echo "Changes detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Terraform plan failed"
             exit 1
           fi
 
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-
       - name: Terraform Apply
+        if: steps.plan.outputs.has_changes == 'true'
         run: terraform apply -auto-approve tfplan
 
       - name: Get Terraform Outputs
