@@ -26,9 +26,9 @@ help:
 	@echo "    make pre-commit-install - pre-commitフックをインストール"
 	@echo ""
 	@echo "  ローカル開発:"
-	@echo "    make dev                - 開発サーバー起動方法を表示"
-	@echo "    make dev-frontend       - フロントエンド開発サーバー (localhost:5173)"
-	@echo "    make dev-backend        - バックエンド開発サーバー (localhost:8000)"
+	@echo "    make dev                - フロントエンド+バックエンドを同時起動"
+	@echo "    make dev-frontend       - フロントエンドのみ (localhost:5173)"
+	@echo "    make dev-backend        - バックエンドのみ (localhost:8000)"
 	@echo ""
 	@echo "  テスト:"
 	@echo "    make test               - 全テストを実行"
@@ -73,12 +73,15 @@ pre-commit-install:
 # ローカル開発
 # ==============================
 dev:
-	@echo "ローカル開発環境を起動するには、別々のターミナルで実行してください:"
+	@echo "🚀 ローカル開発環境を起動中..."
+	@echo "  バックエンド: http://localhost:8000"
+	@echo "  フロントエンド: http://localhost:5173"
 	@echo ""
-	@echo "  ターミナル1: make dev-backend"
-	@echo "  ターミナル2: make dev-frontend"
-	@echo ""
-	@echo "バックエンドはAWSのDynamoDBを使用します。"
+	@echo "停止するには Ctrl+C を押してください"
+	@trap 'kill 0' EXIT; \
+	(cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8000) & \
+	(cd frontend && npm run dev) & \
+	wait
 
 dev-frontend:
 	cd frontend && npm run dev
