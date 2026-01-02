@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
 
 from app.config import settings
 from app.routers import health, todos
@@ -27,8 +26,3 @@ app.include_router(todos.router)
 @app.get("/")
 async def root() -> dict[str, str]:
     return {"message": "ToDo Dashboard API"}
-
-
-# AWS Lambda handler
-# lifespan="off" to avoid asyncio.get_event_loop() issue in Python 3.14
-handler = Mangum(app, lifespan="off")
