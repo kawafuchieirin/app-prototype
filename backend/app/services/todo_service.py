@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -145,7 +145,7 @@ class TodoService:
             completion_rate=round(completion_rate, 1),
         )
 
-    def _item_to_todo(self, item: dict[str, object]) -> Todo:
+    def _item_to_todo(self, item: dict[str, Any]) -> Todo:
         return Todo(
             id=str(item["id"]),
             title=str(item["title"]),

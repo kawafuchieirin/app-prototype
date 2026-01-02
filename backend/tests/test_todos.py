@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,8 +18,8 @@ def mock_todo() -> Todo:
         title="Test Todo",
         description="Test description",
         status=TodoStatus.PENDING,
-        created_at="2024-01-01T00:00:00+00:00",
-        updated_at="2024-01-01T00:00:00+00:00",
+        created_at=datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
+        updated_at=datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
     )
 
 
