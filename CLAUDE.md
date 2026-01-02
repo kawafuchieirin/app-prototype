@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - AWS Amplify (認証)
 
 **Backend:**
-- Python 3.14 + FastAPI
+- Python 3.12 + FastAPI
 - Poetry (依存関係管理)
 - Mangum (Lambda対応)
 - pytest (テスト)
@@ -32,7 +32,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 前提条件
 
 - Node.js 22+
-- Python 3.14+
+- Python 3.12+
 - Poetry
 - Terraform 1.7+ (tenvで管理)
 - AWS CLI (設定済み)

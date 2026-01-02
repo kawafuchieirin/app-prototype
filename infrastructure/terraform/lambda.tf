@@ -54,7 +54,7 @@ resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-api-${var.environment}"
   role          = aws_iam_role.lambda.arn
   handler       = "app.main.handler"
-  runtime       = "python3.14"
+  runtime       = "python3.12"
   timeout       = 30
   memory_size   = 256
 

@@ -123,7 +123,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: poetry install --only main --no-interaction
@@ -132,7 +132,7 @@ jobs:
         run: |
           mkdir -p package
           cp -r app package/
-          cd .venv/lib/python3.14/site-packages
+          cd .venv/lib/python3.12/site-packages
           cp -r * ../../../../package/
           cd ../../../../package
           zip -r ../lambda.zip .
