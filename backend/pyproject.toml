@@ -25,6 +25,7 @@ httpx = "^0.28.0"
 ruff = "^0.8.0"
 mypy = "^1.14.0"
 boto3-stubs = {extras = ["dynamodb"], version = "^1.35.0"}
+types-python-jose = "^3.5.0.20250531"
 
 [build-system]
 requires = ["poetry-core"]
@@ -59,6 +60,7 @@ strict = true
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+exclude = ["package/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -5,7 +5,7 @@ import { LoginPage } from './components/LoginPage'
 import { StatsCard } from './components/StatsCard'
 import { TodoForm } from './components/TodoForm'
 import { TodoList } from './components/TodoList'
-import { useAuth } from './contexts/AuthContext'
+import { useAuth } from './hooks/useAuth'
 import type { Todo, TodoCreate, TodoStats, TodoStatus } from './types/todo'
 
 function App() {

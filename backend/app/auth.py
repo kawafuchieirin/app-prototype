@@ -1,6 +1,6 @@
 """Cognito JWT認証モジュール"""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import Depends, HTTPException, status
@@ -25,7 +25,7 @@ class CognitoJWTVerifier:
     """Cognito JWTトークン検証クラス"""
 
     def __init__(self) -> None:
-        self._jwks: dict | None = None
+        self._jwks: dict[str, Any] | None = None
 
     @property
     def issuer(self) -> str:
@@ -44,7 +44,7 @@ class CognitoJWTVerifier:
             return ""
         return f"{self.issuer}/.well-known/jwks.json"
 
-    async def get_jwks(self) -> dict:
+    async def get_jwks(self) -> dict[str, Any]:
         """JWKSを取得（キャッシュあり）"""
         if self._jwks is None:
             if not self.jwks_url:
