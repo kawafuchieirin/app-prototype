@@ -5,7 +5,11 @@ class Settings(BaseSettings):
     app_name: str = "App Prototype API"
     app_version: str = "0.1.0"
     debug: bool = False
-    allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    allowed_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://d3qvrkx1xlvdqo.cloudfront.net",
+    ]
 
     # AWS
     aws_region: str = "ap-northeast-1"
