@@ -32,3 +32,8 @@ output "dynamodb_table_name" {
   description = "DynamoDBテーブル名"
   value       = aws_dynamodb_table.main.name
 }
+
+output "lambda_function_name" {
+  description = "Lambda関数名"
+  value       = aws_lambda_function.api.function_name
+}
