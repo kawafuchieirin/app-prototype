@@ -8,14 +8,13 @@ terraform {
     }
   }
 
-  # バックエンドは本番環境で有効化
-  # backend "s3" {
-  #   bucket         = "your-terraform-state-bucket"
-  #   key            = "app-prototype/terraform.tfstate"
-  #   region         = "ap-northeast-1"
-  #   encrypt        = true
-  #   dynamodb_table = "terraform-state-lock"
-  # }
+  backend "s3" {
+    bucket         = "app-prototype-terraform-state"
+    key            = "app-prototype/terraform.tfstate"
+    region         = "ap-northeast-1"
+    encrypt        = true
+    dynamodb_table = "terraform-state-lock"
+  }
 }
 
 provider "aws" {
