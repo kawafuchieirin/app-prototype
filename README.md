@@ -11,7 +11,7 @@
 - AWS Amplify (認証)
 
 ### Backend
-- Python 3.12 + FastAPI
+- Python 3.14 + FastAPI
 - Poetry (依存関係管理)
 - Mangum (Lambda対応)
 - pytest (テスト)
@@ -26,7 +26,7 @@
 ## 前提条件
 
 - Node.js 22+
-- Python 3.12+
+- Python 3.14+
 - Poetry
 - Terraform 1.7+
 - AWS CLI (設定済み)
