@@ -61,6 +61,7 @@ infrastructure/terraform/*.tfstate
 infrastructure/terraform/*.tfstate.*
 infrastructure/terraform/*.tfplan
 infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/lambda_dummy.zip
 
 # tenv
 .tenv/
