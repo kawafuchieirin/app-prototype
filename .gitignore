@@ -79,3 +79,7 @@ htmlcov/
 # Logs
 logs/
 *.log
+
+# Lambda packaging
+backend/lambda.zip
+backend/package/

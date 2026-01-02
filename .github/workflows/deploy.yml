@@ -38,72 +38,52 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
+        run: terraform init -upgrade
+
+      - name: Terraform Apply (ECR and other resources except Lambda)
         run: |
-          echo "=== Terraform Init ==="
-          terraform init -upgrade
-          echo ""
-          echo "=== Backend Configuration ==="
-          cat .terraform/terraform.tfstate 2>/dev/null || echo "No local state file"
+          # ECRリポジトリを先に作成
+          terraform apply -target=aws_ecr_repository.api -target=aws_ecr_lifecycle_policy.api -auto-approve || true
 
-      - name: Verify Terraform State Access
-        run: |
-          echo "=== S3 Backend Check ==="
-          aws s3 ls s3://app-prototype-terraform-state/app-prototype/ || echo "State file not found (initial deployment)"
-
-          echo ""
-          echo "=== Terraform State List ==="
-          terraform state list || echo "No resources in state"
-
-          echo ""
-          echo "=== State Resource Count ==="
-          STATE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
-          echo "Count: $STATE_COUNT"
-
-      - name: Terraform Plan
-        id: plan
-        run: |
-          set +e
-          terraform plan -detailed-exitcode -out=tfplan
-          EXIT_CODE=$?
-          set -e
-
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "No changes detected"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          elif [ $EXIT_CODE -eq 2 ]; then
-            echo "Changes detected"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "Terraform plan failed"
-            exit 1
-          fi
-
-      - name: Terraform Apply
-        if: steps.plan.outputs.has_changes == 'true'
-        run: terraform apply -auto-approve tfplan
+          # Lambda以外のリソースを適用
+          terraform apply \
+            -target=aws_s3_bucket.frontend \
+            -target=aws_s3_bucket_versioning.frontend \
+            -target=aws_s3_bucket_public_access_block.frontend \
+            -target=aws_cloudfront_origin_access_control.frontend \
+            -target=aws_cloudfront_distribution.frontend \
+            -target=aws_s3_bucket_policy.frontend \
+            -target=aws_dynamodb_table.main \
+            -target=aws_cognito_user_pool.main \
+            -target=aws_cognito_user_pool_client.main \
+            -target=aws_iam_role.lambda \
+            -target=aws_iam_role_policy_attachment.lambda_basic \
+            -target=aws_iam_role_policy.lambda_dynamodb \
+            -target=aws_apigatewayv2_api.main \
+            -target=aws_cloudwatch_log_group.api_gateway \
+            -target=aws_apigatewayv2_stage.main \
+            -target=aws_apigatewayv2_authorizer.cognito \
+            -auto-approve || true
 
       - name: Get Terraform Outputs
         id: tf-outputs
         run: |
-          echo "frontend_bucket=$(terraform output -raw frontend_bucket_name)" >> $GITHUB_OUTPUT
-          echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
-          echo "lambda_function_name=$(terraform output -raw lambda_function_name 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
-          echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
+          echo "frontend_bucket=$(terraform output -raw frontend_bucket_name 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "api_gateway_url=$(terraform output -raw api_gateway_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "ecr_repository_url=$(terraform output -raw ecr_repository_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
 
     outputs:
       frontend_bucket: ${{ steps.tf-outputs.outputs.frontend_bucket }}
       cloudfront_id: ${{ steps.tf-outputs.outputs.cloudfront_id }}
-      lambda_function_name: ${{ steps.tf-outputs.outputs.lambda_function_name }}
       api_gateway_url: ${{ steps.tf-outputs.outputs.api_gateway_url }}
+      ecr_repository_url: ${{ steps.tf-outputs.outputs.ecr_repository_url }}
 
   deploy-backend:
     name: Deploy Backend
     needs: deploy-infrastructure
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: backend
 
     steps:
       - uses: actions/checkout@v4
@@ -115,33 +95,62 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Install dependencies for Lambda
+      - name: Build and Push Docker Image
+        working-directory: backend
+        env:
+          ECR_REPOSITORY_URL: ${{ needs.deploy-infrastructure.outputs.ecr_repository_url }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          mkdir -p package
-          pip install --target package --platform manylinux2014_x86_64 --implementation cp --python-version 3.14 --only-binary=:all: \
-            fastapi pydantic pydantic-settings mangum boto3
-
-      - name: Package Lambda
-        run: |
-          cp -r app package/
-          cd package
-          zip -r ../lambda.zip . -x "*.pyc" -x "__pycache__/*" -x "*.dist-info/*"
-
-      - name: Deploy to Lambda
-        run: |
-          FUNCTION_NAME="${{ needs.deploy-infrastructure.outputs.lambda_function_name }}"
-          if [ -z "$FUNCTION_NAME" ]; then
-            echo "Lambda function name not available, skipping deployment"
+          if [ -z "$ECR_REPOSITORY_URL" ]; then
+            echo "ECR repository URL not available, skipping deployment"
             exit 0
           fi
+
+          echo "Building Docker image..."
+          docker build -t ${ECR_REPOSITORY_URL}:${IMAGE_TAG} -t ${ECR_REPOSITORY_URL}:latest .
+
+          echo "Pushing Docker image..."
+          docker push ${ECR_REPOSITORY_URL}:${IMAGE_TAG}
+          docker push ${ECR_REPOSITORY_URL}:latest
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Deploy Lambda with Terraform
+        working-directory: infrastructure/terraform
+        env:
+          ECR_REPOSITORY_URL: ${{ needs.deploy-infrastructure.outputs.ecr_repository_url }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          terraform init -upgrade
+
+          # Lambda関数とAPI Gateway統合を作成/更新
+          terraform apply -auto-approve
+
+      - name: Update Lambda to use new image
+        env:
+          ECR_REPOSITORY_URL: ${{ needs.deploy-infrastructure.outputs.ecr_repository_url }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          FUNCTION_NAME="app-prototype-api-dev"
+
+          echo "Updating Lambda function with new image..."
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
-            --zip-file fileb://lambda.zip
+            --image-uri "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+
+          echo "Waiting for Lambda update to complete..."
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME"
+
+          echo "Lambda function updated successfully"
 
   deploy-frontend:
     name: Deploy Frontend

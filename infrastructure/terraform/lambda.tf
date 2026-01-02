@@ -49,18 +49,17 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
   })
 }
 
-# Lambda関数
+# Lambda関数（コンテナイメージ使用）
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-api-${var.environment}"
   role          = aws_iam_role.lambda.arn
-  handler       = "app.main.handler"
-  runtime       = "python3.14"
   timeout       = 30
   memory_size   = 256
+  package_type  = "Image"
 
-  # 初期デプロイ用のダミーコード（CI/CDで上書きされる）
-  filename         = data.archive_file.lambda_dummy.output_path
-  source_code_hash = data.archive_file.lambda_dummy.output_base64sha256
+  # 初期デプロイ用のダミーイメージ（CI/CDで上書きされる）
+  # ECRリポジトリ作成後、最初のCI/CDでイメージがプッシュされる
+  image_uri = "${aws_ecr_repository.api.repository_url}:latest"
 
   environment {
     variables = {
@@ -69,16 +68,11 @@ resource "aws_lambda_function" "api" {
       AWS_REGION_NAME     = var.aws_region
     }
   }
-}
 
-# ダミーのLambdaコード
-data "archive_file" "lambda_dummy" {
-  type        = "zip"
-  output_path = "${path.module}/lambda_dummy.zip"
+  depends_on = [aws_ecr_repository.api]
 
-  source {
-    content  = "def handler(event, context): return {'statusCode': 200, 'body': 'OK'}"
-    filename = "app/main.py"
+  lifecycle {
+    ignore_changes = [image_uri]
   }
 }
 
