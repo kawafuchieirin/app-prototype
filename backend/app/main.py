@@ -30,4 +30,5 @@ async def root() -> dict[str, str]:
 
 
 # AWS Lambda handler
-handler = Mangum(app)
+# lifespan="off" to avoid asyncio.get_event_loop() issue in Python 3.14
+handler = Mangum(app, lifespan="off")
