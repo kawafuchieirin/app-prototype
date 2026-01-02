@@ -1,4 +1,19 @@
-.PHONY: help install install-frontend install-backend dev dev-frontend dev-backend test test-frontend test-backend lint lint-frontend lint-backend format build build-frontend build-backend clean tf-init tf-plan tf-apply tf-destroy pre-commit-install pre-commit-run local-up local-down local-logs local-build local-clean deploy deploy-backend deploy-frontend deploy-infra
+# シェルとPATHの設定
+SHELL := /bin/bash
+export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
+
+.PHONY: help install install-frontend install-backend dev dev-frontend dev-backend test test-frontend test-backend lint lint-frontend lint-backend format build build-frontend build-backend clean tf-init tf-plan tf-apply tf-destroy pre-commit-install pre-commit-run deploy deploy-backend deploy-frontend deploy-infra
+
+# ==============================
+# 設定
+# ==============================
+AWS_REGION ?= ap-northeast-1
+ECR_REPO = 412420079063.dkr.ecr.$(AWS_REGION).amazonaws.com/app-prototype-api-dev
+LAMBDA_FUNCTION = app-prototype-api-dev
+S3_BUCKET = app-prototype-frontend-dev
+CLOUDFRONT_ID = E3MKYSY7TC8WOW
+API_URL = https://i7yz3ihjzj.execute-api.$(AWS_REGION).amazonaws.com
+DYNAMODB_TABLE = app-prototype-dev
 
 # デフォルトターゲット
 help:
@@ -10,10 +25,10 @@ help:
 	@echo "    make install-backend    - バックエンドの依存関係をインストール"
 	@echo "    make pre-commit-install - pre-commitフックをインストール"
 	@echo ""
-	@echo "  開発:"
-	@echo "    make dev                - 全サービスを開発モードで起動"
-	@echo "    make dev-frontend       - フロントエンドを開発モードで起動"
-	@echo "    make dev-backend        - バックエンドを開発モードで起動"
+	@echo "  ローカル開発:"
+	@echo "    make dev                - 開発サーバー起動方法を表示"
+	@echo "    make dev-frontend       - フロントエンド開発サーバー (localhost:5173)"
+	@echo "    make dev-backend        - バックエンド開発サーバー (localhost:8000)"
 	@echo ""
 	@echo "  テスト:"
 	@echo "    make test               - 全テストを実行"
@@ -22,15 +37,13 @@ help:
 	@echo ""
 	@echo "  コード品質:"
 	@echo "    make lint               - 全プロジェクトのリントを実行"
-	@echo "    make lint-frontend      - フロントエンドのリントを実行"
-	@echo "    make lint-backend       - バックエンドのリントを実行"
 	@echo "    make format             - コードフォーマットを実行"
-	@echo "    make pre-commit-run     - pre-commitを手動実行"
 	@echo ""
-	@echo "  ビルド:"
-	@echo "    make build              - 全プロジェクトをビルド"
-	@echo "    make build-frontend     - フロントエンドをビルド"
-	@echo "    make build-backend      - バックエンドをビルド"
+	@echo "  AWSデプロイ:"
+	@echo "    make deploy             - バックエンド+フロントエンドをAWSにデプロイ"
+	@echo "    make deploy-backend     - バックエンドをECR/Lambdaにデプロイ"
+	@echo "    make deploy-frontend    - フロントエンドをS3/CloudFrontにデプロイ"
+	@echo "    make deploy-infra       - Terraformでインフラをデプロイ"
 	@echo ""
 	@echo "  Terraform:"
 	@echo "    make tf-init            - Terraformを初期化"
@@ -38,20 +51,8 @@ help:
 	@echo "    make tf-apply           - Terraformを適用"
 	@echo "    make tf-destroy         - インフラを破棄"
 	@echo ""
-	@echo "  デプロイ:"
-	@echo "    make deploy             - バックエンドとフロントエンドをデプロイ"
-	@echo "    make deploy-backend     - バックエンドをECR/Lambdaにデプロイ"
-	@echo "    make deploy-frontend    - フロントエンドをS3/CloudFrontにデプロイ"
-	@echo "    make deploy-infra       - Terraformでインフラをデプロイ"
-	@echo ""
-	@echo "  ローカル環境 (Docker):"
-	@echo "    make local-up           - Docker環境を起動"
-	@echo "    make local-down         - Docker環境を停止"
-	@echo "    make local-logs         - ログを表示"
-	@echo "    make local-build        - イメージを再ビルド"
-	@echo "    make local-clean        - Docker環境を完全削除"
-	@echo ""
 	@echo "  その他:"
+	@echo "    make build              - 全プロジェクトをビルド"
 	@echo "    make clean              - ビルド成果物を削除"
 
 # ==============================
@@ -66,21 +67,24 @@ install-backend:
 	cd backend && poetry install
 
 pre-commit-install:
-	pre-commit install
+	pre-commit install || true
 
 # ==============================
-# 開発
+# ローカル開発
 # ==============================
 dev:
-	@echo "フロントエンドとバックエンドを並行起動するには、別々のターミナルで実行してください"
-	@echo "  make dev-frontend"
-	@echo "  make dev-backend"
+	@echo "ローカル開発環境を起動するには、別々のターミナルで実行してください:"
+	@echo ""
+	@echo "  ターミナル1: make dev-backend"
+	@echo "  ターミナル2: make dev-frontend"
+	@echo ""
+	@echo "バックエンドはAWSのDynamoDBを使用します。"
 
 dev-frontend:
 	cd frontend && npm run dev
 
 dev-backend:
-	cd backend && poetry run uvicorn app.main:app --reload --port 8000
+	cd backend && DYNAMODB_TABLE_NAME=$(DYNAMODB_TABLE) poetry run uvicorn app.main:app --reload --port 8000
 
 # ==============================
 # テスト
@@ -88,7 +92,7 @@ dev-backend:
 test: test-frontend test-backend
 
 test-frontend:
-	cd frontend && npm test
+	cd frontend && npm test -- --run
 
 test-backend:
 	cd backend && poetry run pytest
@@ -124,6 +128,35 @@ build-backend:
 	cd backend && poetry build
 
 # ==============================
+# AWSデプロイ
+# ==============================
+deploy: deploy-backend deploy-frontend
+	@echo ""
+	@echo "✅ デプロイ完了!"
+	@echo "  フロントエンド: https://d3qvrkx1xlvdqo.cloudfront.net"
+	@echo "  API: $(API_URL)"
+
+deploy-backend:
+	@echo "=== バックエンドをデプロイ ==="
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REPO)
+	cd backend && docker build -t $(ECR_REPO):latest .
+	docker push $(ECR_REPO):latest
+	aws lambda update-function-code --function-name $(LAMBDA_FUNCTION) --image-uri $(ECR_REPO):latest --region $(AWS_REGION)
+	aws lambda wait function-updated --function-name $(LAMBDA_FUNCTION) --region $(AWS_REGION)
+	@echo "✅ バックエンドデプロイ完了!"
+
+deploy-frontend:
+	@echo "=== フロントエンドをデプロイ ==="
+	cd frontend && VITE_API_URL=$(API_URL) npm run build
+	aws s3 sync frontend/dist/ s3://$(S3_BUCKET) --delete --region $(AWS_REGION)
+	aws cloudfront create-invalidation --distribution-id $(CLOUDFRONT_ID) --paths "/*" --region $(AWS_REGION)
+	@echo "✅ フロントエンドデプロイ完了!"
+
+deploy-infra:
+	@echo "=== インフラをデプロイ ==="
+	cd infrastructure/terraform && terraform init -upgrade && terraform apply -auto-approve
+
+# ==============================
 # Terraform
 # ==============================
 tf-init:
@@ -137,57 +170,6 @@ tf-apply:
 
 tf-destroy:
 	cd infrastructure/terraform && terraform destroy
-
-# ==============================
-# デプロイ
-# ==============================
-AWS_REGION ?= ap-northeast-1
-ECR_REPO = 412420079063.dkr.ecr.$(AWS_REGION).amazonaws.com/app-prototype-api-dev
-LAMBDA_FUNCTION = app-prototype-api-dev
-S3_BUCKET = app-prototype-frontend-dev
-CLOUDFRONT_ID = E3MKYSY7TC8WOW
-API_URL = https://i7yz3ihjzj.execute-api.$(AWS_REGION).amazonaws.com
-
-deploy: deploy-backend deploy-frontend
-	@echo "デプロイ完了!"
-
-deploy-backend:
-	@echo "=== バックエンドをデプロイ ==="
-	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REPO)
-	cd backend && docker build -t $(ECR_REPO):latest .
-	docker push $(ECR_REPO):latest
-	aws lambda update-function-code --function-name $(LAMBDA_FUNCTION) --image-uri $(ECR_REPO):latest --region $(AWS_REGION)
-	aws lambda wait function-updated --function-name $(LAMBDA_FUNCTION) --region $(AWS_REGION)
-	@echo "バックエンドデプロイ完了!"
-
-deploy-frontend:
-	@echo "=== フロントエンドをデプロイ ==="
-	cd frontend && VITE_API_URL=$(API_URL) npm run build
-	aws s3 sync frontend/dist/ s3://$(S3_BUCKET) --delete --region $(AWS_REGION)
-	aws cloudfront create-invalidation --distribution-id $(CLOUDFRONT_ID) --paths "/*" --region $(AWS_REGION)
-	@echo "フロントエンドデプロイ完了!"
-
-deploy-infra:
-	@echo "=== インフラをデプロイ ==="
-	cd infrastructure/terraform && terraform init -upgrade && terraform apply -auto-approve
-
-# ==============================
-# ローカル環境 (Docker)
-# ==============================
-local-up:
-	cd local && docker compose up -d
-
-local-down:
-	cd local && docker compose down
-
-local-logs:
-	cd local && docker compose logs -f
-
-local-build:
-	cd local && docker compose build --no-cache
-
-local-clean:
-	cd local && docker compose down -v --rmi local
 
 # ==============================
 # クリーンアップ
